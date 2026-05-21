@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Teacher Dashboard | QR Attendance</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #38bdf8;
+      border-radius: 10px;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    .active-ring {
+      animation: pulse-ring 2s infinite;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center p-6 md:p-12 font-sans antialiased">
+
+  <div class="text-center mb-10">
+    <h1 class="text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">Teacher Dashboard</h1>
+    <p class="text-slate-400 text-lg font-light">Generate an interactive QR code for your class</p>
+  </div>
+
+  <!-- Login Card -->
+  <div id="login-card" class="glass-card rounded-2xl p-8 w-full max-w-md shadow-2xl transition-all duration-300">
+    <div class="space-y-5">
+      <div>
+        <label class="block mb-2 text-sm text-slate-300 font-semibold">Username</label>
+        <input id="username" class="w-full p-3 rounded-xl border border-white/10 bg-slate-900/60 text-white outline-none focus:border-sky-400 transition-colors" placeholder="e.g. teacher1" />
+      </div>
+      <div>
+        <label class="block mb-2 text-sm text-slate-300 font-semibold">Password</label>
+        <input id="password" type="password" class="w-full p-3 rounded-xl border border-white/10 bg-slate-900/60 text-white outline-none focus:border-sky-400 transition-colors" placeholder="••••••••" />
+      </div>
+      <div>
+        <label class="block mb-2 text-sm text-slate-300 font-semibold">Class Name</label>
+        <input id="class-name" class="w-full p-3 rounded-xl border border-white/10 bg-slate-900/60 text-white outline-none focus:border-sky-400 transition-colors" placeholder="e.g. Advanced Mathematics" />
+      </div>
+      <button onclick="createSession()" class="w-full p-3.5 mt-4 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-400 text-white font-bold text-lg shadow-lg hover:-translate-y-0.5 hover:shadow-sky-400/40 transition-all">
+        Create Session
+      </button>
+      <p id="login-err" class="hidden text-red-300 text-sm mt-4 text-center bg-red-500/10 p-2 rounded-lg"></p>
+    </div>
+  </div>
+
+  <!-- Dashboard Section -->
+  <div id="dashboard-section" class="hidden w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8">
+    
+    <!-- QR Code & Controls -->
+    <div class="glass-card rounded-3xl p-8 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-400 to-indigo-500"></div>
+      
+      <div class="inline-block px-4 py-1.5 bg-sky-400/10 border border-sky-400/30 rounded-full text-sky-400 font-semibold mb-6">
+        Session: <span id="session-label"></span>
+      </div>
+
+      <!-- Status Indicator -->
+      <div id="status-badge" class="mb-6 px-3 py-1 rounded-full text-sm font-bold bg-slate-700 text-slate-300 border border-slate-500 transition-colors duration-300">
+        Session Stopped
+      </div>
+
+      <!-- QR Image Container -->
+      <div id="qr-container" class="bg-white p-4 rounded-2xl shadow-2xl mb-8 opacity-50 blur-sm transition-all duration-500">
+        <img id="qr-img" alt="QR Code" class="w-48 h-48 md:w-56 md:h-56 object-contain" />
+      </div>
+
+      <div class="flex gap-4 w-full">
+        <button id="btn-start" onclick="startSession()" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-lg shadow-lg hover:-translate-y-0.5 hover:shadow-emerald-400/40 transition-all">
+          ▶ Start
+        </button>
+        <button id="btn-stop" onclick="stopSession()" disabled class="flex-1 py-3 rounded-xl bg-slate-600 text-slate-300 font-bold text-lg cursor-not-allowed opacity-70 transition-all">
+          ■ Stop
+        </button>
+      </div>
+      <p class="text-xs text-slate-400 mt-4">QR code rotates automatically every 30s when active.</p>
+    </div>
+
+    <!-- Live Feed -->
+    <div class="glass-card rounded-3xl p-8 shadow-2xl flex flex-col h-[500px]">
+      <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2 border-b border-white/10 pb-4">
+        <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        Live Attendance Feed
+      </h3>
+      
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
+        <ul id="att-ul" class="space-y-3">
+          <li id="empty-state" class="text-center text-slate-400 mt-10 italic">Waiting for students...</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let sessionId = null;
+    let creds = {};
+    let socket = null;
+
+    async function createSession() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const class_name = document.getElementById("class-name").value.trim();
+      const errBox = document.getElementById("login-err");
+      
+      if (!username || !password || !class_name) {
+        errBox.textContent = "All fields required!";
+        errBox.classList.remove("hidden");
+        return;
+      }
+      errBox.classList.add("hidden");
+      creds = { username, password };
+
+      try {
+        const res = await fetch("/api/session/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", username, password },
+          body: JSON.stringify({ class_name }),
+        });
+        const data = await res.json();
+        
+        if (!res.ok) { 
+          errBox.textContent = data.error || "Failed to create session"; 
+          errBox.classList.remove("hidden");
+          return; 
+        }
+
+        sessionId = data.sessionId;
+        
+        // UI Updates
+        document.getElementById("login-card").classList.add("hidden");
+        document.getElementById("dashboard-section").classList.remove("hidden");
+        document.getElementById("session-label").textContent = class_name;
+        document.getElementById("qr-img").src = data.qrImage;
+        
+        initSocket();
+
+      } catch (err) {
+        errBox.textContent = "Server error.";
+        errBox.classList.remove("hidden");
+      }
+    }
+
+    function initSocket() {
+      socket = io();
+      
+      socket.on("connect", () => {
+        socket.emit("join_session", { sessionId, ...creds });
+      });
+
+      // Handle new tokens from server
+      socket.on("new_token", (data) => {
+        document.getElementById("qr-img").src = data.qrImage;
+      });
+
+      // Receive full history on join
+      socket.on("attendance_history", (history) => {
+        const ul = document.getElementById("att-ul");
+        if (history.length > 0) {
+          ul.innerHTML = "";
+          history.forEach(addStudentToList);
+        }
+      });
+
+      // Receive real-time individual updates
+      socket.on("student_attended", (data) => {
+        const emptyState = document.getElementById("empty-state");
+        if (emptyState) emptyState.remove();
+        addStudentToList(data);
+      });
+
+      socket.on("session_status", (data) => {
+        updateUIStatus(data.isActive);
+      });
+    }
+
+    function startSession() {
+      if (socket) {
+        socket.emit("start_session", { sessionId, ...creds });
+      }
+    }
+
+    function stopSession() {
+      if (socket) {
+        socket.emit("stop_session", { sessionId, ...creds });
+      }
+    }
+
+    function updateUIStatus(isActive) {
+      const qrContainer = document.getElementById("qr-container");
+      const badge = document.getElementById("status-badge");
+      const btnStart = document.getElementById("btn-start");
+      const btnStop = document.getElementById("btn-stop");
+
+      if (isActive) {
+        qrContainer.classList.remove("opacity-50", "blur-sm");
+        qrContainer.classList.add("active-ring");
+        
+        badge.textContent = "Session Active • Scanning Open";
+        badge.className = "mb-6 px-4 py-1.5 rounded-full text-sm font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 transition-colors duration-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]";
+        
+        btnStart.disabled = true;
+        btnStart.className = "flex-1 py-3 rounded-xl bg-slate-600 text-slate-300 font-bold text-lg cursor-not-allowed opacity-70 transition-all";
+        
+        btnStop.disabled = false;
+        btnStop.className = "flex-1 py-3 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold text-lg shadow-lg hover:-translate-y-0.5 hover:shadow-red-500/40 transition-all";
+      } else {
+        qrContainer.classList.add("opacity-50", "blur-sm");
+        qrContainer.classList.remove("active-ring");
+        
+        badge.textContent = "Session Stopped";
+        badge.className = "mb-6 px-4 py-1.5 rounded-full text-sm font-bold bg-slate-700/50 text-slate-400 border border-slate-600 transition-colors duration-300";
+        
+        btnStart.disabled = false;
+        btnStart.className = "flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-lg shadow-lg hover:-translate-y-0.5 hover:shadow-emerald-400/40 transition-all";
+        
+        btnStop.disabled = true;
+        btnStop.className = "flex-1 py-3 rounded-xl bg-slate-600 text-slate-300 font-bold text-lg cursor-not-allowed opacity-70 transition-all";
+      }
+    }
+
+    function addStudentToList(data) {
+      const ul = document.getElementById("att-ul");
+      const date = new Date(data.timestamp * 1000);
+      const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      
+      const li = document.createElement("li");
+      li.className = "bg-slate-800/50 border border-white/5 p-4 rounded-xl flex justify-between items-center transform transition-all duration-500 hover:bg-slate-800";
+      li.style.animation = "slideIn 0.3s ease-out forwards";
+      
+      li.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-lime-400 to-green-500 flex items-center justify-center text-slate-900 font-bold text-lg">
+            ${data.student_name.charAt(0).toUpperCase()}
+          </div>
+          <span class="font-semibold text-white text-lg">${data.student_name}</span>
+        </div>
+        <span class="text-sm bg-slate-900/80 px-3 py-1.5 rounded-lg text-sky-300 font-mono border border-white/5">
+          ${timeStr}
+        </span>
+      `;
+      
+      // Add to top of list
+      ul.insertBefore(li, ul.firstChild);
+    }
+  </script>
+  
+  <style>
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</body>
+</html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Dashboard | Mark Attendance</title>
+  
+  <!-- html5-qrcode from CDN -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    #reader {
+      border: none !important;
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+    #reader__scan_region {
+      background: #000;
+    }
+    #reader video {
+      object-fit: cover;
+      border-radius: 1rem;
+    }
+    .success-theme {
+      background: linear-gradient(135deg, rgba(20, 83, 45, 0.9), rgba(6, 78, 59, 0.9));
+      border-color: #4ade80;
+    }
+    .error-theme {
+      background: linear-gradient(135deg, rgba(127, 29, 29, 0.9), rgba(153, 27, 27, 0.9));
+      border-color: #f87171;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop {
+      animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center p-6 md:p-12 font-sans antialiased">
+
+  <div class="text-center mb-10">
+    <h1 class="text-4xl md:text-5xl font-bold mb-2 bg-gradient-to-r from-lime-400 to-green-300 bg-clip-text text-transparent">Student Dashboard</h1>
+    <p class="text-slate-400 text-lg font-light">Mark your attendance instantly</p>
+  </div>
+
+  <!-- Login Card -->
+  <div id="login-card" class="glass-card rounded-3xl p-8 w-full max-w-md shadow-2xl transition-all duration-300">
+    <div class="space-y-5">
+      <div>
+        <label class="block mb-2 text-sm text-slate-300 font-semibold">Username</label>
+        <input id="username" class="w-full p-3.5 rounded-xl border border-white/10 bg-slate-900/60 text-white outline-none focus:border-lime-400 transition-colors" placeholder="e.g. alice" />
+      </div>
+      <div>
+        <label class="block mb-2 text-sm text-slate-300 font-semibold">Password</label>
+        <input id="password" type="password" class="w-full p-3.5 rounded-xl border border-white/10 bg-slate-900/60 text-white outline-none focus:border-lime-400 transition-colors" placeholder="••••••••" />
+      </div>
+      <button onclick="startScanner()" class="w-full p-4 mt-4 rounded-xl bg-gradient-to-r from-lime-400 to-green-500 text-slate-900 font-bold text-lg shadow-lg hover:-translate-y-0.5 hover:shadow-lime-400/40 transition-all">
+        Login & Open Camera
+      </button>
+      <p id="login-err" class="hidden text-red-300 text-sm mt-4 text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20"></p>
+    </div>
+  </div>
+
+  <!-- Scanner Section -->
+  <div id="scanner-section" class="hidden w-full max-w-md">
+    <div class="glass-card rounded-3xl p-6 shadow-2xl mb-6 relative">
+      <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-lime-400 to-green-500 rounded-t-3xl"></div>
+      <p class="text-slate-300 text-center mb-4 font-medium">Point your camera at the teacher's QR code.</p>
+      
+      <!-- Camera Viewport -->
+      <div class="relative rounded-2xl overflow-hidden border-2 border-slate-700/50 bg-black aspect-square flex items-center justify-center shadow-inner">
+        <div id="reader" class="w-full h-full"></div>
+      </div>
+      
+      <!-- Upload Option -->
+      <div class="mt-4 text-center">
+        <div class="flex items-center justify-center space-x-2 text-slate-400 mb-3">
+          <div class="h-px bg-slate-700 w-12"></div>
+          <span class="text-sm">OR</span>
+          <div class="h-px bg-slate-700 w-12"></div>
+        </div>
+        <input type="file" id="qr-upload" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
+        <button onclick="document.getElementById('qr-upload').click()" class="w-full px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold border border-slate-600 transition-colors flex items-center justify-center gap-2 shadow-md">
+          <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+          Select Photo
+        </button>
+      </div>
+
+      <!-- Hidden div for file scanner (must have dimensions, so we move it offscreen instead of display:none) -->
+      <div id="hidden-reader" class="absolute -top-[9999px] -left-[9999px] w-[300px] h-[300px]"></div>
+    </div>
+
+    <!-- Result Box -->
+    <div id="result-box" class="hidden rounded-3xl p-6 shadow-2xl animate-pop border-2">
+      <div class="text-center">
+        <div id="res-icon" class="text-6xl mb-4"></div>
+        <h2 id="res-msg" class="text-xl md:text-2xl font-bold text-white mb-6 leading-tight"></h2>
+      </div>
+
+      <div id="session-info" class="hidden">
+        <div class="bg-black/30 rounded-2xl p-5 space-y-3">
+          <div class="flex justify-between items-center border-b border-white/5 pb-3">
+            <span class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Class</span>
+            <span id="res-class" class="text-white font-bold text-right"></span>
+          </div>
+          <div class="flex justify-between items-center border-b border-white/5 pb-3">
+            <span class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Teacher</span>
+            <span id="res-teacher" class="text-white font-bold text-right"></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400 text-sm font-semibold uppercase tracking-wider">Time</span>
+            <span id="res-time" class="text-white font-mono text-sm text-right"></span>
+          </div>
+        </div>
+      </div>
+      
+      <button onclick="resetScanner()" class="w-full p-3 mt-6 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-md transition-colors border border-white/10">
+        Scan Again
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let creds = {};
+    let scanner = null;
+    let scanDone = false;
+
+    async function startScanner() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const errBox = document.getElementById("login-err");
+      
+      if (!username || !password) {
+        errBox.textContent = "Both fields are required!";
+        errBox.classList.remove("hidden");
+        return;
+      }
+      errBox.classList.add("hidden");
+      
+      try {
+        const res = await fetch("/api/student/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+        
+        if (!res.ok) {
+          errBox.textContent = "Incorrect username or password. (Hint: Try alice and student1)";
+          errBox.classList.remove("hidden");
+          return;
+        }
+
+        creds = { username, password };
+        
+        document.getElementById("login-card").classList.add("hidden");
+        document.getElementById("scanner-section").classList.remove("hidden");
+
+        initScanner();
+      } catch (err) {
+        errBox.textContent = "Server error occurred.";
+        errBox.classList.remove("hidden");
+      }
+    }
+
+    function initScanner() {
+      scanDone = false;
+      document.getElementById("result-box").classList.add("hidden");
+      
+      scanner = new Html5QrcodeScanner("reader", {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      });
+      scanner.render(onScanSuccess, onScanError);
+    }
+
+    function resetScanner() {
+      if (scanner) {
+        scanner.clear();
+      }
+      initScanner();
+    }
+
+    async function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      try {
+        const qrCode = new Html5Qrcode("hidden-reader");
+        const decodedText = await qrCode.scanFile(file, true);
+        
+        // Success
+        document.getElementById('qr-upload').value = ""; // Reset
+        qrCode.clear();
+        onScanSuccess(decodedText);
+
+      } catch (err) {
+        document.getElementById('qr-upload').value = ""; // Reset
+        showResult("Could not find a valid QR code in the image.", false);
+      }
+    }
+
+    async function onScanSuccess(decodedText) {
+      if (scanDone) return;
+      scanDone = true;
+      scanner.clear();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(decodedText);
+      } catch {
+        showResult("Invalid QR code format. Not from this system.", false);
+        return;
+      }
+
+      const { sessionId, token } = parsed;
+      if (!sessionId || !token) {
+         showResult("Invalid QR code data.", false);
+         return;
+      }
+
+      try {
+        const res = await fetch("/api/attend", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            username: creds.username,
+            password: creds.password,
+          },
+          body: JSON.stringify({ sessionId, token }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          showResult(data.message, true, data.sessionDetails);
+        } else {
+          showResult(data.error, false);
+        }
+      } catch (err) {
+        showResult("Network error. Please try again.", false);
+      }
+    }
+
+    function onScanError(err) {
+      // Ignore background errors
+    }
+
+    function showResult(msg, success, details = null) {
+      const box = document.getElementById("result-box");
+      const icon = document.getElementById("res-icon");
+      const text = document.getElementById("res-msg");
+      const infoBox = document.getElementById("session-info");
+      
+      // Reset classes
+      box.classList.remove("success-theme", "error-theme", "hidden");
+      
+      if (success) {
+        box.classList.add("success-theme");
+        icon.textContent = "✅";
+        text.textContent = msg;
+        
+        if (details) {
+          document.getElementById("res-class").textContent = details.className;
+          document.getElementById("res-teacher").textContent = details.teacherUsername || 'N/A';
+          const date = new Date(details.createdAt * 1000);
+          document.getElementById("res-time").textContent = date.toLocaleString();
+          infoBox.classList.remove("hidden");
+        }
+      } else {
+        box.classList.add("error-theme");
+        icon.textContent = "❌";
+        text.textContent = msg;
+        infoBox.classList.add("hidden");
+      }
+    }
+  </script>
+</body>
+</html>
