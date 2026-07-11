@@ -1,6 +1,6 @@
 # 📱 Real-Time QR Code Attendance System
 
-A modern, secure, and real-time attendance system utilizing dynamic QR codes. Teachers can create sessions and generate QR codes that automatically rotate to prevent attendance fraud (like sharing screenshots), while students scan/input the details to mark attendance. Real-time statistics are immediately broadcast to the teacher's dashboard.
+A modern, secure, and real-time attendance system utilizing dynamic QR codes. Teachers can create sessions and generate QR codes that automatically rotate to prevent attendance fraud (like sharing screenshots), while students scan/input the details to mark attendance. Real-time statistics are immediately broadcast to the teacher's dashboard .
 
 ---
 
